@@ -12,8 +12,8 @@ module.exports = {
   listItems: function(projectName, callback) {
     base('Items').select({
       // maxRecords: 3,
-      filterByFormula: `Projeto = "${projectName}"`,
-      view: "Grid view"
+      filterByFormula: `FIND("${projectName}", Projeto) > 0`,
+      // view: "Grid view"
     }).eachPage(function page(records, fetchNextPage) {
       // This function (`page`) will get called for each page of records.
 
@@ -34,8 +34,8 @@ module.exports = {
   listPriceItems: function(projectName, itemName, callback) {
     base('Precificação').select({
       // maxRecords: 3,
-      filterByFormula: `AND(Projeto = "${projectName}", Item = "${itemName}")`,
-      view: "Grid view"
+      filterByFormula: `AND((FIND("${projectName}", Projeto) > 0), (FIND("${itemName}", Item) > 0))`,
+      // view: "Grid view"
     }).eachPage(function page(records, fetchNextPage) {
       // This function (`page`) will get called for each page of records.
 
@@ -57,7 +57,7 @@ module.exports = {
     base('Orçamentos').select({
       // maxRecords: 3,
       filterByFormula: `orcamento = "${name}"`,
-      view: "Grid view"
+      // view: "Grid view"
     }).eachPage(function page(records, fetchNextPage) {
       if (records.length > 0) {
         callback(records[0]);
@@ -102,12 +102,13 @@ module.exports = {
   getOrCreateTodoList: function(item, workstackProject, difByHour, callback) {
     var self = this;
     var name = item.get('Items');
+    var dif = item.get('Soma Diff');
+    var minutes = dif * difByHour * 60.0;
+
     var todoList = self.findTodoList(name, workstackProject);
     if (todoList) {
       self.updateTodoList(todoList.id, name, workstackProject.id, minutes, todoList, callback);
     } else {
-      var dif = item.get('Soma Diff');
-      var minutes = dif * difByHour * 60.0;
       self.createTodoList(name, workstackProject.id, minutes, callback);
     }
   },
@@ -199,13 +200,14 @@ module.exports = {
   getOrCreateTodo: function(priceItem, todoList, workstackProject, difByHour, callback) {
     var self = this;
     var name = priceItem.get('Tasks');
+    var dif = priceItem.get('Resultado');
+    var minutes = dif * difByHour * 60.0;
+
     var todo = self.findTodo(name, todoList, workstackProject);
     if (todo) {
       self.updateTodo(todo.id, name, todoList.id, workstackProject.id, minutes, todo, callback);
       // callback(todo);
     } else {
-      var dif = priceItem.get('Resultado');
-      var minutes = dif * difByHour * 60.0;
       self.createTodo(name, todoList.id, workstackProject.id, minutes, callback);
     }
   },
