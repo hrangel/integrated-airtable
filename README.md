@@ -9,3 +9,8 @@ order2WorkStack.saveToProject('[AIRTABLE ORDER NAME]', '[Workstack Project ID]',
 var order2Trello = require('./Order2Trello');
 order2Trello.saveToProject('[AIRTABLE ORDER NAME]', '[Trello Project ID]', '[Airtable Api KEY]', '[Airtable Table ID]', '[Trello Api Key]', '[Trello Token]')
 ```
+
+```
+var project2Trello = require('./Project2Trello');
+project2Trello.saveToProject('[AIRTABLE ORDER NAME]', '[Trello Project ID]', '[Airtable Api KEY]', '[Airtable Table ID]', '[Trello Api Key]', '[Trello Token]')
+```

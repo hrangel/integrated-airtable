@@ -8,9 +8,9 @@ var trelloApi = "[Trello_Api]";
 var trelloToken = "[Trello_Token]";
 
 module.exports = {
-  listFuncionalidades: function(projectName, callback) {
+  listItems: function(projectName, callback) {
     base('Funcionalidades').select({
-      sort: [{field: "Codigo"}],
+      // maxRecords: 3,
       filterByFormula: `FIND("${projectName}", Projeto) > 0`,
     }).eachPage(function page(records, fetchNextPage) {
       callback(records);
@@ -20,21 +20,12 @@ module.exports = {
     });
   },
 
-  listItems: function(projectName, itemName, callback) {
+  listPriceItems: function(projectName, itemName, callback) {
     base('Items').select({
-      sort: [{field: "Codigo"}],
+      // maxRecords: 3,
       filterByFormula: `AND((FIND("${projectName}", Projeto) > 0), (FIND("${itemName}", Funcionalidade) > 0))`,
       // view: "Grid view"
     }).eachPage(function page(records, fetchNextPage) {
-      // This function (`page`) will get called for each page of records.
-
-      // records.forEach(function(record) {
-          // console.log('Retrieved', record.get('Items'));
-      // });
-
-      // To fetch the next page of records, call `fetchNextPage`.
-      // If there are more records, `page` will get called again.
-      // If there are no more records, `done` will get called.
       callback(records);
 
     }, function done(err) {
@@ -44,7 +35,9 @@ module.exports = {
 
   getAirtableProject: function(name, callback, callbackError) {
     base('Projetos').select({
-      filterByFormula: `FIND("${name}", Codigo) > 0`,
+      // maxRecords: 3,
+      filterByFormula: `Id = "${name}"`,
+      // view: "Grid view"
     }).eachPage(function page(records, fetchNextPage) {
       if (records.length > 0) {
         callback(records[0]);
@@ -56,15 +49,6 @@ module.exports = {
   },
 
   getTrelloProject: function(projectId, callback) {
-    var settings = {
-      "async": true,
-      "crossDomain": true,
-      "method": "GET",
-      "headers": {
-        "accept": "application/json"
-      }
-    }
-
     trelloClient.get("/1/boards/" + projectId, function(err, data) {
       if (err) throw err;
       // console.log(data);
@@ -115,7 +99,7 @@ module.exports = {
     });
   },
 
-  getOrCreateCardLabel: function(code, name, trelloProject, callback) {
+  getOrCreateCardLabel: function(name, trelloProject, callback) {
     var self = this;
     self.findCardLabel(name, trelloProject, function(cardLabel) {
       if (cardLabel) {
@@ -208,30 +192,28 @@ module.exports = {
     }
   },
 
-  getOrCreateCard: function(item, cardLabel, cardList, trelloProject, difByHour, pos, callback) {
+  getOrCreateCard: function(priceItem, cardLabel, cardList, trelloProject, difByHour, callback) {
     var self = this;
-    var name = item.get('Titulo');
+    var name = priceItem.get('Nome');
     self.findCard(name, cardLabel, cardList, trelloProject, function(card) {
-      var dif = item.get('Resultado Qty');
-      // console.log('CARD (difByHour):' + difByHour);
-      // console.log('CARD (dif):' + dif);
-      var minutes = Math.ceil((dif * difByHour * 60.0) / 5) * 5;
+      var dif = priceItem.get('Resultado Qty');
+      var minutes = dif * difByHour * 60.0;
       if (card) {
-        self.updateCard(card.id, name, cardLabel.id, cardList, trelloProject, minutes, pos, callback);
+        self.createCard(card.id, name, cardLabel.id, cardList, trelloProject, minutes, callback);
       } else {
-        self.createCard(name, cardLabel.id, cardList, trelloProject, minutes, pos, callback);
+        self.createCard(name, cardLabel.id, cardList, trelloProject, minutes, callback);
       }
     });
   },
 
-  createCard: function(name, cardLabelId, cardList, trelloProject, minutes, pos, callback) {
+  createCard: function(name, cardLabelId, cardList, trelloProject, minutes, callback) {
     var data = {
       "name": name,
       "desc": "AllBoardsCalendar=>Time(" + minutes + "m)",
       "idList": cardList.id,
       "idLabels": cardLabelId,
-      "pos": pos
     }
+    console.log(data);
 
     trelloClient.post("/1/cards", data, function (err, responseData) {
       if (err) throw err;
@@ -240,15 +222,14 @@ module.exports = {
     });
   },
 
-  updateCard: function(id, name, cardLabelId, cardList, trelloProject, minutes, pos, callback) {
+  updateCard: function(id, name, cardLabelId, cardList, trelloProject, minutes, callback) {
     var data = {
       "name": name,
       "desc": "AllBoardsCalendar=>Time(" + minutes + "m)",
       "idList": cardList.id,
       "idLabels": cardLabelId,
-      "pos": pos
     }
-    // console.log(data);
+    console.log(data);
 
     trelloClient.put("/1/cards/" + id, data, function (err, responseData) {
       if (err) throw err;
@@ -292,23 +273,20 @@ module.exports = {
 
         self.getOrCreateCardList("Entrada", trelloProject, function(cardList) {
           console.log('CARD List: ' + cardList.name);
-          self.listFuncionalidades(airtableProjectName, function(funcionalidades) {
-            funcionalidades.forEach(function(funcionalidade) {
-              var funcionalidadeCode = funcionalidade.get('Codigo');
-              var funcionalidadeName = funcionalidade.get('Titulo');
-              console.log('Airtable Funcionalidade: ' + funcionalidadeName);
-              self.getOrCreateCardLabel(funcionalidadeCode, funcionalidadeName, trelloProject, function(cardLabel) {
-                self.listItems(airtableProjectName, funcionalidadeName, function(items) {
-                  for (var i = 0; i < items.length; i++) {
-                    var item = items[i];
-                    var itemName = item.get('Titulo');
-                    var itemOrder = item.get('Order') ? item.get('Order') : (i + 1);
-                    console.log('Airtable Item: ' + itemName);
+          self.listItems(airtableProjectName, function(items) {
+            items.forEach(function(item) {
+              var itemName = item.get('Titulo');
+              console.log('Airtable Item: ' + itemName);
+              self.getOrCreateCardLabel(itemName, trelloProject, function(cardLabel) {
+                self.listPriceItems(airtableProjectName, itemName, function(priceItems) {
+                  priceItems.forEach(function(priceItem) {
+                    var priceItemName = priceItem.get('Nome');
+                    console.log('Airtable Price Item: ' + priceItemName);
 
-                    self.getOrCreateCard(item, cardLabel, cardList, trelloProject, difByHour, itemOrder, function(card) {
+                    self.getOrCreateCard(priceItem, cardLabel, cardList, trelloProject, difByHour, function(card) {
                       console.log('CARD: ' + card.name);
                     });
-                  }
+                  });
                 });
               });
             });
